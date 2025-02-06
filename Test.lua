@@ -1,30 +1,19 @@
-from PIL import Image
-import numpy as np
+local Player = game.Players.LocalPlayer
+local UIS = game:GetService("UserInputService")
 
-# Cargar la imagen
-imagen = Image.open('imagen.jpg')
+-- Lista de puntos a dibujar (X, Y, Color)
+local dibujo = {
+    {10, 20, Color3.fromRGB(255, 0, 0)},
+    {15, 25, Color3.fromRGB(0, 255, 0)},
+    {20, 30, Color3.fromRGB(0, 0, 255)}
+}
 
-# Redimensionar la imagen
-nuevo_tamano = (50, 50)  # Ajusta este tamaño según tus necesidades
-imagen = imagen.resize(nuevo_tamano)
+-- Función para simular un toque en móvil
+for _, pixel in pairs(dibujo) do
+    local x, y, color = pixel[1], pixel[2], pixel[3]
 
-# Convertir la imagen a una matriz numpy
-matriz_pixeles = np.array(imagen)
+    -- Simula un toque en la pantalla en esa posición
+    UIS.InputBegan:Fire({Position = Vector2.new(x, y), UserInputType = Enum.UserInputType.Touch})
 
-# Obtener las dimensiones de la imagen
-alto, ancho, _ = matriz_pixeles.shape
-
-# Crear una lista para almacenar las coordenadas y colores
-lista_coordenadas_colores = []
-
-# Recorrer cada píxel de la imagen
-for y in range(alto):
-    for x in range(ancho):
-        # Obtener el color del píxel (R, G, B)
-        color = matriz_pixeles[y, x]
-        # Almacenar la coordenada y el color
-        lista_coordenadas_colores.append(((x, y), tuple(color)))
-
-# Mostrar las primeras 10 coordenadas y colores
-for i in range(10):
-    print(lista_coordenadas_colores[i])
+    wait(0.1) -- Pequeña pausa entre cada punto dibujado
+end
