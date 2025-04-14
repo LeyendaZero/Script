@@ -1,8 +1,8 @@
 -- CONFIG
 local AimbotEnabled = true
-local CircleRadius = 150
+local AimStrength = 0.1 -- 0.1 = suave, 1 = fuerte
 local AimPart = "Head"
-local OffsetForward = 5 -- adelanta el aimbot 5 studs
+local Radius = 150
 
 -- SERVICES
 local Players = game:GetService("Players")
@@ -11,40 +11,7 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local UIS = game:GetService("UserInputService")
 
--- GUI
-local gui = Instance.new("ScreenGui", game.CoreGui)
-local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0, 180, 0, 120)
-frame.Position = UDim2.new(0, 10, 0, 100)
-frame.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
-frame.BackgroundTransparency = 0.2
-frame.Visible = true
-
-local function button(text, y, callback)
-	local b = Instance.new("TextButton", frame)
-	b.Size = UDim2.new(1, 0, 0, 30)
-	b.Position = UDim2.new(0, 0, 0, y)
-	b.Text = text
-	b.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
-	b.TextColor3 = Color3.new(1, 1, 1)
-	b.MouseButton1Click:Connect(callback)
-end
-
-button("Toggle Aimbot", 0, function() AimbotEnabled = not AimbotEnabled end)
-button("Aumentar Rango", 35, function() CircleRadius += 25 end)
-button("Reducir Rango", 70, function() CircleRadius = math.max(50, CircleRadius - 25) end)
-
-local toggle = Instance.new("TextButton", gui)
-toggle.Size = UDim2.new(0, 40, 0, 40)
-toggle.Position = UDim2.new(0, 10, 0, 50)
-toggle.Text = "☰"
-toggle.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
-toggle.TextColor3 = Color3.new(1, 1, 1)
-toggle.MouseButton1Click:Connect(function()
-	frame.Visible = not frame.Visible
-end)
-
--- CIRCLE
+-- CIRCLE (visual opcional)
 local Circle = Drawing.new("Circle")
 Circle.Thickness = 1
 Circle.Color = Color3.new(1, 0, 0)
@@ -53,7 +20,7 @@ Circle.Visible = true
 
 -- TARGET
 local function getClosest()
-	local closest, minDist = nil, CircleRadius
+	local closest, minDist = nil, Radius
 	local mouse = UIS:GetMouseLocation()
 
 	for _, plr in ipairs(Players:GetPlayers()) do
@@ -62,7 +29,6 @@ local function getClosest()
 			if char and char:FindFirstChild("HumanoidRootPart") then
 				local part = char:FindFirstChild(AimPart) or char:FindFirstChild("HumanoidRootPart")
 
-				-- Verifica si está en un vehículo
 				for _, desc in pairs(workspace:GetDescendants()) do
 					if desc:IsA("VehicleSeat") and desc.Occupant and desc.Occupant.Parent == char then
 						if desc.Parent:IsA("Model") and desc.Parent.PrimaryPart then
@@ -91,14 +57,15 @@ end
 RunService.RenderStepped:Connect(function()
 	local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 	Circle.Position = center
-	Circle.Radius = CircleRadius
+	Circle.Radius = Radius
 
 	if AimbotEnabled then
 		local target = getClosest()
 		if target then
-			local look = (target.CFrame.LookVector.Unit * OffsetForward)
-			local predicted = target.Position + look
-			Camera.CFrame = CFrame.new(Camera.CFrame.Position, predicted)
+			local targetPos = target.Position
+			local direction = (targetPos - Camera.CFrame.Position).Unit
+			local newLook = Camera.CFrame.Position + direction * AimStrength
+			Camera.CFrame = CFrame.new(Camera.CFrame.Position, newLook)
 		end
 	end
 end)
