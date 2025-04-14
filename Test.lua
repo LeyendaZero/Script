@@ -1,111 +1,83 @@
---// CONFIGURACIONES
+-- CONFIG
 local AimbotEnabled = true
-local AimbotRange = 200
 local CircleRadius = 150
-local IgnoredPlayers = {}
-local AimPartName = "Head"
+local PredictionTime = 0.15 -- 0.15s adelante
+local AimPart = "Head"
 
---// VARIABLES
+-- SERVICES
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
+local UIS = game:GetService("UserInputService")
 
---// GUI HUD
-local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
-ScreenGui.Name = "AimbotHUD"
+-- GUI HUD
+local gui = Instance.new("ScreenGui", game.CoreGui)
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0, 180, 0, 120)
+frame.Position = UDim2.new(0, 10, 0, 100)
+frame.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
+frame.BackgroundTransparency = 0.2
+frame.Visible = true
 
-local Frame = Instance.new("Frame", ScreenGui)
-Frame.Size = UDim2.new(0, 180, 0, 190)
-Frame.Position = UDim2.new(0, 10, 0, 100)
-Frame.BackgroundTransparency = 0.3
-Frame.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
-Frame.BorderSizePixel = 0
-Frame.Visible = true
-
-local function createButton(text, yPos, callback)
-	local btn = Instance.new("TextButton", Frame)
-	btn.Size = UDim2.new(1, 0, 0, 30)
-	btn.Position = UDim2.new(0, 0, 0, yPos)
-	btn.Text = text
-	btn.TextColor3 = Color3.new(1, 1, 1)
-	btn.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
-	btn.MouseButton1Click:Connect(callback)
+local function button(text, y, callback)
+	local b = Instance.new("TextButton", frame)
+	b.Size = UDim2.new(1, 0, 0, 30)
+	b.Position = UDim2.new(0, 0, 0, y)
+	b.Text = text
+	b.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+	b.TextColor3 = Color3.new(1, 1, 1)
+	b.MouseButton1Click:Connect(callback)
 end
 
-createButton("Toggle Aimbot", 0, function()
-	AimbotEnabled = not AimbotEnabled
+button("Toggle Aimbot", 0, function() AimbotEnabled = not AimbotEnabled end)
+button("Aumentar Rango", 35, function() CircleRadius += 25 end)
+button("Reducir Rango", 70, function() CircleRadius = math.max(50, CircleRadius - 25) end)
+
+local toggle = Instance.new("TextButton", gui)
+toggle.Size = UDim2.new(0, 40, 0, 40)
+toggle.Position = UDim2.new(0, 10, 0, 50)
+toggle.Text = "☰"
+toggle.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+toggle.TextColor3 = Color3.new(1, 1, 1)
+toggle.MouseButton1Click:Connect(function()
+	frame.Visible = not frame.Visible
 end)
 
-createButton("Aumentar Rango", 35, function()
-	AimbotRange += 50
-end)
-
-createButton("Reducir Rango", 70, function()
-	AimbotRange = math.max(50, AimbotRange - 50)
-end)
-
-createButton("Aumentar Círculo", 105, function()
-	CircleRadius += 25
-end)
-
-createButton("Reducir Círculo", 140, function()
-	CircleRadius = math.max(50, CircleRadius - 25)
-end)
-
-createButton("Ocultar HUD", 175, function()
-	Frame.Visible = false
-end)
-
-local FloatButton = Instance.new("TextButton", ScreenGui)
-FloatButton.Size = UDim2.new(0, 50, 0, 50)
-FloatButton.Position = UDim2.new(0, 10, 0, 40)
-FloatButton.Text = "☰"
-FloatButton.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
-FloatButton.TextColor3 = Color3.new(1, 1, 1)
-FloatButton.MouseButton1Click:Connect(function()
-	Frame.Visible = not Frame.Visible
-end)
-
---// CÍRCULO DE ENFOQUE
+-- CIRCLE DRAWING
 local Circle = Drawing.new("Circle")
-Circle.Visible = true
-Circle.Color = Color3.new(1, 0, 0)
 Circle.Thickness = 1
+Circle.Color = Color3.new(1, 0, 0)
 Circle.Filled = false
-Circle.Radius = CircleRadius
-Circle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+Circle.Visible = true
 
---// FUNCIONES
-local function getTarget()
-	local mousePos = UserInputService:GetMouseLocation()
-	local closest = nil
-	local closestDist = AimbotRange
+-- FIND CLOSEST TARGET
+local function getClosest()
+	local closest, minDist = nil, CircleRadius
+	local mouse = UIS:GetMouseLocation()
 
-	for _, player in pairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and not IgnoredPlayers[player.Name] and player.Team ~= LocalPlayer.Team then
-			local char = player.Character
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr ~= LocalPlayer and plr.Team ~= LocalPlayer.Team then
+			local char = plr.Character
 			if char and char:FindFirstChild("HumanoidRootPart") then
-				local targetPart = char:FindFirstChild(AimPartName) or char:FindFirstChild("HumanoidRootPart")
+				local part = char:FindFirstChild(AimPart) or char:FindFirstChild("HumanoidRootPart")
 
-				-- Detectar vehículo
-				for _, part in pairs(workspace:GetDescendants()) do
-					if part:IsA("VehicleSeat") and part.Occupant and part.Occupant.Parent == char then
-						if part.Parent:IsA("Model") and part.Parent.PrimaryPart then
-							targetPart = part.Parent.PrimaryPart
+				-- Buscar si está en vehículo
+				for _, desc in pairs(workspace:GetDescendants()) do
+					if desc:IsA("VehicleSeat") and desc.Occupant and desc.Occupant.Parent == char then
+						if desc.Parent:IsA("Model") and desc.Parent.PrimaryPart then
+							part = desc.Parent.PrimaryPart
 						end
-						break
 					end
 				end
 
-				if targetPart then
-					local screenPoint, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
-					local dist = (Vector2.new(screenPoint.X, screenPoint.Y) - mousePos).Magnitude
+				if part then
+					local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+					local dist = (Vector2.new(pos.X, pos.Y) - mouse).Magnitude
 
-					if dist < closestDist and dist < CircleRadius and onScreen then
-						closest = targetPart
-						closestDist = dist
+					if onScreen and dist < minDist then
+						closest = part
+						minDist = dist
 					end
 				end
 			end
@@ -115,15 +87,18 @@ local function getTarget()
 	return closest
 end
 
---// LOOP
+-- AIMBOT LOOP
 RunService.RenderStepped:Connect(function()
+	local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+	Circle.Position = center
 	Circle.Radius = CircleRadius
-	Circle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
-	if not AimbotEnabled then return end
-
-	local target = getTarget()
-	if target then
-		Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Position)
+	if AimbotEnabled then
+		local target = getClosest()
+		if target then
+			local vel = target.Velocity
+			local predicted = target.Position + (vel * PredictionTime)
+			Camera.CFrame = CFrame.new(Camera.CFrame.Position, predicted)
+		end
 	end
 end)
