@@ -1,160 +1,136 @@
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInput = game:GetService("UserInputService")
+--// CONFIGURACIONES
+local AimbotEnabled = true
+local AimbotRange = 200
+local IgnoredPlayers = {}
+local AimPartName = "Head" -- Parte si no se detecta vehículo
 
+--// VARIABLES
+local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
-local Mouse = LocalPlayer:GetMouse()
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local GuiService = game:GetService("GuiService")
 
-local aimEnabled = false
-local predictionFactor = 0.1
-local aimbotRange = 1000
-local ignoredPlayers = {}
+--// GUI HUD
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+ScreenGui.Name = "AimbotHUD"
 
--- Crear GUI principal
-local ScreenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
-ScreenGui.ResetOnSpawn = false
+local Frame = Instance.new("Frame", ScreenGui)
+Frame.Size = UDim2.new(0, 180, 0, 160)
+Frame.Position = UDim2.new(0, 10, 0, 100)
+Frame.BackgroundTransparency = 0.3
+Frame.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
+Frame.BorderSizePixel = 0
+Frame.Visible = true
 
--- Botón flotante para mostrar/ocultar menú
-local ToggleMenuBtn = Instance.new("TextButton", ScreenGui)
-ToggleMenuBtn.Size = UDim2.new(0, 40, 0, 40)
-ToggleMenuBtn.Position = UDim2.new(0, 10, 0, 10)
-ToggleMenuBtn.Text = "≡"
-ToggleMenuBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-ToggleMenuBtn.TextColor3 = Color3.new(1, 1, 1)
-
--- Menú principal
-local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 250, 0, 180)
-MainFrame.Position = UDim2.new(0, 60, 0, 10)
-MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-MainFrame.Visible = true
-MainFrame.Draggable = true
-MainFrame.Active = true
-
--- Botón de encendido/apagado
-local ToggleBtn = Instance.new("TextButton", MainFrame)
-ToggleBtn.Size = UDim2.new(1, -20, 0, 30)
-ToggleBtn.Position = UDim2.new(0, 10, 0, 10)
-ToggleBtn.Text = "Aimbot: OFF"
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
-ToggleBtn.TextColor3 = Color3.new(1, 1, 1)
-
--- Slider de predicción
-local PredLabel = Instance.new("TextLabel", MainFrame)
-PredLabel.Size = UDim2.new(1, -20, 0, 20)
-PredLabel.Position = UDim2.new(0, 10, 0, 50)
-PredLabel.Text = "Predicción: 0.1"
-PredLabel.TextColor3 = Color3.new(1, 1, 1)
-PredLabel.BackgroundTransparency = 1
-
-local PredSlider = Instance.new("TextButton", MainFrame)
-PredSlider.Size = UDim2.new(1, -20, 0, 20)
-PredSlider.Position = UDim2.new(0, 10, 0, 70)
-PredSlider.Text = ""
-PredSlider.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
-
--- Slider de rango
-local RangeLabel = Instance.new("TextLabel", MainFrame)
-RangeLabel.Size = UDim2.new(1, -20, 0, 20)
-RangeLabel.Position = UDim2.new(0, 10, 0, 100)
-RangeLabel.Text = "Rango: 1000"
-RangeLabel.TextColor3 = Color3.new(1, 1, 1)
-RangeLabel.BackgroundTransparency = 1
-
-local RangeSlider = Instance.new("TextButton", MainFrame)
-RangeSlider.Size = UDim2.new(1, -20, 0, 20)
-RangeSlider.Position = UDim2.new(0, 10, 0, 120)
-RangeSlider.Text = ""
-RangeSlider.BackgroundColor3 = Color3.fromRGB(0, 100, 0)
-
--- Función de sliders
-local function manejarSlider(slider, label, valorMin, valorMax, onChange)
-	slider.MouseButton1Down:Connect(function()
-		local moveConn
-		moveConn = Mouse.Move:Connect(function()
-			local relX = math.clamp(Mouse.X - slider.AbsolutePosition.X, 0, slider.AbsoluteSize.X)
-			local valor = math.round((relX / slider.AbsoluteSize.X) * (valorMax - valorMin) + valorMin, 2)
-			onChange(valor)
-		end)
-		UserInput.InputEnded:Wait()
-		moveConn:Disconnect()
-	end)
+local function createButton(text, yPos, callback)
+	local btn = Instance.new("TextButton", Frame)
+	btn.Size = UDim2.new(1, 0, 0, 30)
+	btn.Position = UDim2.new(0, 0, 0, yPos)
+	btn.Text = text
+	btn.TextColor3 = Color3.new(1, 1, 1)
+	btn.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+	btn.MouseButton1Click:Connect(callback)
 end
 
-manejarSlider(PredSlider, PredLabel, 0, 1, function(val)
-	predictionFactor = val
-	PredLabel.Text = "Predicción: " .. tostring(val)
+createButton("Toggle Aimbot", 0, function()
+	AimbotEnabled = not AimbotEnabled
 end)
 
-manejarSlider(RangeSlider, RangeLabel, 100, 5000, function(val)
-	aimbotRange = val
-	RangeLabel.Text = "Rango: " .. tostring(val)
+createButton("Aumentar Rango", 35, function()
+	AimbotRange = AimbotRange + 50
 end)
 
--- Botón toggle
-ToggleBtn.MouseButton1Click:Connect(function()
-	aimEnabled = not aimEnabled
-	ToggleBtn.Text = "Aimbot: " .. (aimEnabled and "ON" or "OFF")
-	ToggleBtn.BackgroundColor3 = aimEnabled and Color3.fromRGB(0, 100, 0) or Color3.fromRGB(100, 0, 0)
+createButton("Reducir Rango", 70, function()
+	AimbotRange = math.max(50, AimbotRange - 50)
 end)
 
--- Mostrar/ocultar menú
-ToggleMenuBtn.MouseButton1Click:Connect(function()
-	MainFrame.Visible = not MainFrame.Visible
+createButton("Ocultar HUD", 105, function()
+	Frame.Visible = false
 end)
 
--- Crear línea visual
-local function crearLinea()
-	local a0 = Instance.new("Attachment", Camera)
-	local a1 = Instance.new("Attachment")
-	local beam = Instance.new("Beam")
-	beam.Attachment0 = a0
-	beam.Attachment1 = a1
-	beam.Color = ColorSequence.new(Color3.new(1, 0, 0))
-	beam.Width0 = 0.1
-	beam.Width1 = 0.1
-	beam.FaceCamera = true
-	beam.Parent = a0
-	return a1, beam
-end
+-- Botón flotante para abrir menú
+local FloatButton = Instance.new("TextButton", ScreenGui)
+FloatButton.Size = UDim2.new(0, 50, 0, 50)
+FloatButton.Position = UDim2.new(0, 10, 0, 40)
+FloatButton.Text = "☰"
+FloatButton.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+FloatButton.TextColor3 = Color3.new(1, 1, 1)
+FloatButton.MouseButton1Click:Connect(function()
+	Frame.Visible = not Frame.Visible
+end)
 
-local function getClosestEnemy()
-	local closest, minDist = nil, math.huge
+--// BEAM LINEA ROJA
+local BeamLine = Drawing.new("Line")
+BeamLine.Visible = false
+BeamLine.Thickness = 2
+BeamLine.Color = Color3.fromRGB(255, 0, 0)
+
+--// FUNCIONES
+local function getTarget()
+	local closest = nil
+	local closestDist = AimbotRange
+
 	for _, player in pairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Team ~= LocalPlayer.Team and not ignoredPlayers[player.Name] then
+		if player ~= LocalPlayer and not IgnoredPlayers[player.Name] and player.Team ~= LocalPlayer.Team then
 			local char = player.Character
 			if char and char:FindFirstChild("HumanoidRootPart") then
-				local dist = (char.HumanoidRootPart.Position - Camera.CFrame.Position).Magnitude
-				if dist < minDist and dist <= aimbotRange then
-					minDist = dist
-					closest = player
+				local targetPart = char:FindFirstChild(AimPartName) or char:FindFirstChild("HumanoidRootPart")
+
+				-- Detectar vehículo montado
+				local vehicle = nil
+				for _, part in pairs(workspace:GetDescendants()) do
+					if part:IsA("VehicleSeat") and part.Occupant and part.Occupant.Parent == char then
+						vehicle = part.Parent
+						break
+					end
+				end
+
+				if vehicle and vehicle:IsA("Model") and vehicle.PrimaryPart then
+					targetPart = vehicle.PrimaryPart
+				end
+
+				if targetPart then
+					local screenPoint, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+					local dist = (Vector2.new(screenPoint.X, screenPoint.Y) - UserInputService:GetMouseLocation()).Magnitude
+					if dist < closestDist and onScreen then
+						closest = targetPart
+						closestDist = dist
+					end
 				end
 			end
 		end
 	end
+
 	return closest
 end
 
-local function predictPosition(target)
-	local hrp = target.Character.HumanoidRootPart
-	return hrp.Position + hrp.Velocity * predictionFactor
-end
-
-local a1, beam = crearLinea()
-
--- Aimbot loop
+--// LOOP
 RunService.RenderStepped:Connect(function()
-	if not aimEnabled then beam.Enabled = false return end
+	if not AimbotEnabled then
+		BeamLine.Visible = false
+		return
+	end
 
-	local target = getClosestEnemy()
-	if target and target.Character then
-		local pos = predictPosition(target)
-		Camera.CFrame = CFrame.new(Camera.CFrame.Position, pos)
-		a1.Parent = target.Character.HumanoidRootPart
-		a1.Position = Vector3.new(0, 0, 0)
-		beam.Enabled = true
+	local target = getTarget()
+
+	if target then
+		local targetPos = target.Position
+		local screenPos, visible = Camera:WorldToViewportPoint(targetPos)
+
+		if visible then
+			-- Aimbot mira
+			Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetPos)
+
+			-- Línea roja
+			BeamLine.Visible = true
+			BeamLine.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+			BeamLine.To = Vector2.new(screenPos.X, screenPos.Y)
+		else
+			BeamLine.Visible = false
+		end
 	else
-		beam.Enabled = false
+		BeamLine.Visible = false
 	end
 end)
