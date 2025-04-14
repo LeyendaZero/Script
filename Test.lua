@@ -1,8 +1,8 @@
 -- CONFIG
 local AimbotEnabled = true
 local CircleRadius = 150
-local PredictionTime = 0.15 -- 0.15s adelante
 local AimPart = "Head"
+local OffsetForward = 5 -- adelanta el aimbot 5 studs
 
 -- SERVICES
 local Players = game:GetService("Players")
@@ -11,7 +11,7 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local UIS = game:GetService("UserInputService")
 
--- GUI HUD
+-- GUI
 local gui = Instance.new("ScreenGui", game.CoreGui)
 local frame = Instance.new("Frame", gui)
 frame.Size = UDim2.new(0, 180, 0, 120)
@@ -44,14 +44,14 @@ toggle.MouseButton1Click:Connect(function()
 	frame.Visible = not frame.Visible
 end)
 
--- CIRCLE DRAWING
+-- CIRCLE
 local Circle = Drawing.new("Circle")
 Circle.Thickness = 1
 Circle.Color = Color3.new(1, 0, 0)
 Circle.Filled = false
 Circle.Visible = true
 
--- FIND CLOSEST TARGET
+-- TARGET
 local function getClosest()
 	local closest, minDist = nil, CircleRadius
 	local mouse = UIS:GetMouseLocation()
@@ -62,7 +62,7 @@ local function getClosest()
 			if char and char:FindFirstChild("HumanoidRootPart") then
 				local part = char:FindFirstChild(AimPart) or char:FindFirstChild("HumanoidRootPart")
 
-				-- Buscar si está en vehículo
+				-- Verifica si está en un vehículo
 				for _, desc in pairs(workspace:GetDescendants()) do
 					if desc:IsA("VehicleSeat") and desc.Occupant and desc.Occupant.Parent == char then
 						if desc.Parent:IsA("Model") and desc.Parent.PrimaryPart then
@@ -87,7 +87,7 @@ local function getClosest()
 	return closest
 end
 
--- AIMBOT LOOP
+-- LOOP
 RunService.RenderStepped:Connect(function()
 	local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 	Circle.Position = center
@@ -96,8 +96,8 @@ RunService.RenderStepped:Connect(function()
 	if AimbotEnabled then
 		local target = getClosest()
 		if target then
-			local vel = target.Velocity
-			local predicted = target.Position + (vel * PredictionTime)
+			local look = (target.CFrame.LookVector.Unit * OffsetForward)
+			local predicted = target.Position + look
 			Camera.CFrame = CFrame.new(Camera.CFrame.Position, predicted)
 		end
 	end
