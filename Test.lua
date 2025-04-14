@@ -1,8 +1,9 @@
 --// CONFIGURACIONES
 local AimbotEnabled = true
 local AimbotRange = 200
+local CircleRadius = 150
 local IgnoredPlayers = {}
-local AimPartName = "Head" -- Parte si no se detecta vehículo
+local AimPartName = "Head"
 
 --// VARIABLES
 local Players = game:GetService("Players")
@@ -10,14 +11,13 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local GuiService = game:GetService("GuiService")
 
 --// GUI HUD
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
 ScreenGui.Name = "AimbotHUD"
 
 local Frame = Instance.new("Frame", ScreenGui)
-Frame.Size = UDim2.new(0, 180, 0, 160)
+Frame.Size = UDim2.new(0, 180, 0, 190)
 Frame.Position = UDim2.new(0, 10, 0, 100)
 Frame.BackgroundTransparency = 0.3
 Frame.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
@@ -39,18 +39,25 @@ createButton("Toggle Aimbot", 0, function()
 end)
 
 createButton("Aumentar Rango", 35, function()
-	AimbotRange = AimbotRange + 50
+	AimbotRange += 50
 end)
 
 createButton("Reducir Rango", 70, function()
 	AimbotRange = math.max(50, AimbotRange - 50)
 end)
 
-createButton("Ocultar HUD", 105, function()
+createButton("Aumentar Círculo", 105, function()
+	CircleRadius += 25
+end)
+
+createButton("Reducir Círculo", 140, function()
+	CircleRadius = math.max(50, CircleRadius - 25)
+end)
+
+createButton("Ocultar HUD", 175, function()
 	Frame.Visible = false
 end)
 
--- Botón flotante para abrir menú
 local FloatButton = Instance.new("TextButton", ScreenGui)
 FloatButton.Size = UDim2.new(0, 50, 0, 50)
 FloatButton.Position = UDim2.new(0, 10, 0, 40)
@@ -61,14 +68,18 @@ FloatButton.MouseButton1Click:Connect(function()
 	Frame.Visible = not Frame.Visible
 end)
 
---// BEAM LINEA ROJA
-local BeamLine = Drawing.new("Line")
-BeamLine.Visible = false
-BeamLine.Thickness = 2
-BeamLine.Color = Color3.fromRGB(255, 0, 0)
+--// CÍRCULO DE ENFOQUE
+local Circle = Drawing.new("Circle")
+Circle.Visible = true
+Circle.Color = Color3.new(1, 0, 0)
+Circle.Thickness = 1
+Circle.Filled = false
+Circle.Radius = CircleRadius
+Circle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
 --// FUNCIONES
 local function getTarget()
+	local mousePos = UserInputService:GetMouseLocation()
 	local closest = nil
 	local closestDist = AimbotRange
 
@@ -78,23 +89,21 @@ local function getTarget()
 			if char and char:FindFirstChild("HumanoidRootPart") then
 				local targetPart = char:FindFirstChild(AimPartName) or char:FindFirstChild("HumanoidRootPart")
 
-				-- Detectar vehículo montado
-				local vehicle = nil
+				-- Detectar vehículo
 				for _, part in pairs(workspace:GetDescendants()) do
 					if part:IsA("VehicleSeat") and part.Occupant and part.Occupant.Parent == char then
-						vehicle = part.Parent
+						if part.Parent:IsA("Model") and part.Parent.PrimaryPart then
+							targetPart = part.Parent.PrimaryPart
+						end
 						break
 					end
 				end
 
-				if vehicle and vehicle:IsA("Model") and vehicle.PrimaryPart then
-					targetPart = vehicle.PrimaryPart
-				end
-
 				if targetPart then
 					local screenPoint, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
-					local dist = (Vector2.new(screenPoint.X, screenPoint.Y) - UserInputService:GetMouseLocation()).Magnitude
-					if dist < closestDist and onScreen then
+					local dist = (Vector2.new(screenPoint.X, screenPoint.Y) - mousePos).Magnitude
+
+					if dist < closestDist and dist < CircleRadius and onScreen then
 						closest = targetPart
 						closestDist = dist
 					end
@@ -108,29 +117,13 @@ end
 
 --// LOOP
 RunService.RenderStepped:Connect(function()
-	if not AimbotEnabled then
-		BeamLine.Visible = false
-		return
-	end
+	Circle.Radius = CircleRadius
+	Circle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+	if not AimbotEnabled then return end
 
 	local target = getTarget()
-
 	if target then
-		local targetPos = target.Position
-		local screenPos, visible = Camera:WorldToViewportPoint(targetPos)
-
-		if visible then
-			-- Aimbot mira
-			Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetPos)
-
-			-- Línea roja
-			BeamLine.Visible = true
-			BeamLine.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-			BeamLine.To = Vector2.new(screenPos.X, screenPos.Y)
-		else
-			BeamLine.Visible = false
-		end
-	else
-		BeamLine.Visible = false
+		Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Position)
 	end
 end)
