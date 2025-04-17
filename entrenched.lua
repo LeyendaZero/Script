@@ -1,54 +1,52 @@
-local isOn = false
-local userInput = game:GetService'UserInputService'
-local plr = game:GetService'Players'.LocalPlayer
-local camera = workspace.CurrentCamera
-local mouse = plr:GetMouse()
-local runservice  
-local targetToLookAt
-local bl = {}
-local function isIn(t,value)
-for _,v in ipairs(t) do
-if tostring(v)==tostring(value) then
-return true
-end
-return false
-end
-end
-local function searchForPlayer()
-local localChar = plr.Character
-local targetsInfo = {}
-for _,p in ipairs(game:GetService'Players':GetChildren()) do
-if p.Team ~= plr.Team and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChildWhichIsA("Humanoid") and p.Character.Humanoid.Health > 0  then
-targetsInfo[(localChar.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude] = p.Character.Head
-end
-end
-targetToLookAt = targetsInfo[math.min(table.unpack((function() local t = {} for k,v in pairs(targetsInfo) do if not isIn(bl,v.Parent.Name) then table.insert(t,k) end end return t end)()))]
-if targetToLookAt then
-camera.CFrame = CFrame.lookAt(camera.CFrame.Position,targetToLookAt.Position)
-end
+warn(string.char(76, 111, 97, 100, 101, 100) .. " " .. string.char(84, 117, 114, 114, 101, 116) .. " " .. string.char(65, 117, 116, 111) .. " " .. string.char(65, 105, 109))
+
+local a = game:GetService("Players")
+local b = a.LocalPlayer
+local c = 800 -- velocidad de bala
+
+local function d()
+    local e = b.Character
+    return e and e:FindFirstChild("HumanoidRootPart") and (function()
+        local f = e.HumanoidRootPart.Position
+        local g, h = nil, math.huge
+        for _, i in ipairs(a:GetPlayers()) do
+            if i ~= b and i.Team ~= b.Team and i.Character and i.Character:FindFirstChild("Head") then
+                local j = (i.Character.Head.Position - f).Magnitude
+                if j < h then
+                    local k = i.Character:FindFirstChildOfClass("Humanoid")
+                    if k and k.Health > 0 then
+                        h = j
+                        g = i
+                    end
+                end
+            end
+        end
+        return g
+    end)()
 end
 
-userInput.InputBegan:Connect(function(inpObj,gameprocessed)
-if not gameprocessed then
-if inpObj.KeyCode == Enum.KeyCode.G then
-if isOn then
-runservice:Disconnect()
-isOn = false
-else
-isOn = true
-runservice = game:GetService'RunService'.RenderStepped:Connect(searchForPlayer)
+local function l(m, n)
+    if not m then return m.Position end
+    local o = m.Velocity
+    return m.Position + (o * n)
 end
-elseif inpObj.KeyCode == Enum.KeyCode.F then
-table.insert(bl,targetToLookAt.Parent.Name)
-local enemyCount = 0
-for _,v in ipairs(game:GetService'Players':GetChildren()) do
-if v:IsA("Player") and v.Team ~= plr.Team then
-enemyCount += 1
+
+local function p(q)
+    local r = b.Character
+    if not r or not r:FindFirstChild("HumanoidRootPart") then return 0 end
+    local s = r.HumanoidRootPart.Position
+    local t = (q - s).Magnitude
+    return t / c
 end
-end
-if #bl == enemyCount then
-bl = {}
-end
-end
-end
+
+game:GetService("RunService").Heartbeat:Connect(function()
+    local u = d()
+    if u then
+        local v = u.Character:FindFirstChild("Head")
+        if v then
+            local w = p(v.Position)
+            local x = l(v, w)
+            game:GetService("ReplicatedStorage"):WaitForChild("Event"):FireServer("aim", {x})
+        end
+    end
 end)
