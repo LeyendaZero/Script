@@ -1,71 +1,47 @@
--- CONFIG
-local AimbotEnabled = true
-local AimStrength = 0.1 -- 0.1 = suave, 1 = fuerte
-local AimPart = "Head"
-local Radius = 150
-
--- SERVICES
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
-local UIS = game:GetService("UserInputService")
-
--- CIRCLE (visual opcional)
-local Circle = Drawing.new("Circle")
-Circle.Thickness = 1
-Circle.Color = Color3.new(1, 0, 0)
-Circle.Filled = false
-Circle.Visible = true
-
--- TARGET
-local function getClosest()
-	local closest, minDist = nil, Radius
-	local mouse = UIS:GetMouseLocation()
-
-	for _, plr in ipairs(Players:GetPlayers()) do
-		if plr ~= LocalPlayer and plr.Team ~= LocalPlayer.Team then
-			local char = plr.Character
-			if char and char:FindFirstChild("HumanoidRootPart") then
-				local part = char:FindFirstChild(AimPart) or char:FindFirstChild("HumanoidRootPart")
-
-				for _, desc in pairs(workspace:GetDescendants()) do
-					if desc:IsA("VehicleSeat") and desc.Occupant and desc.Occupant.Parent == char then
-						if desc.Parent:IsA("Model") and desc.Parent.PrimaryPart then
-							part = desc.Parent.PrimaryPart
-						end
-					end
-				end
-
-				if part then
-					local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
-					local dist = (Vector2.new(pos.X, pos.Y) - mouse).Magnitude
-
-					if onScreen and dist < minDist then
-						closest = part
-						minDist = dist
-					end
-				end
-			end
-		end
-	end
-
-	return closest
+warn(string.char(76, 111, 97, 100, 101, 100) .. " " .. string.char(84, 117, 114, 114, 101, 116) .. " " .. string.char(65, 117, 116, 111) .. " " .. string.char(65, 105, 109))
+local a = game:GetService("Players")
+local b = a.LocalPlayer
+local c = 800 -- bullet velocity you can put between 799-800
+local function d()
+    local e = b.Character
+    return e and e:FindFirstChild("HumanoidRootPart") and (function()
+        local f = e.HumanoidRootPart.Position
+        local g, h = nil, math.huge
+        for _, i in ipairs(a:GetPlayers()) do
+            if i ~= b and i.Team ~= b.Team and i.Character and i.Character:FindFirstChild("HumanoidRootPart") then
+                local j = (i.Character.HumanoidRootPart.Position - f).Magnitude
+                if j < h then
+                    local k = i.Character:FindFirstChildOfClass("Humanoid")
+                    if k and k.Health > 0 then
+                        h = j
+                        g = i
+                    end
+                end
+            end
+        end
+        return g
+    end)()
 end
-
--- LOOP
-RunService.RenderStepped:Connect(function()
-	local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-	Circle.Position = center
-	Circle.Radius = Radius
-
-	if AimbotEnabled then
-		local target = getClosest()
-		if target then
-			local targetPos = target.Position
-			local direction = (targetPos - Camera.CFrame.Position).Unit
-			local newLook = Camera.CFrame.Position + direction * AimStrength
-			Camera.CFrame = CFrame.new(Camera.CFrame.Position, newLook)
-		end
-	end
+local function l(m, n)
+    if not m then return m.Position end
+    local o = m.Velocity
+    return m.Position + (o * n)
+end
+local function p(q)
+    local r = b.Character
+    if not r or not r:FindFirstChild("HumanoidRootPart") then return 0 end
+    local s = r.HumanoidRootPart.Position
+    local t = (q - s).Magnitude
+    return t / c
+end
+game:GetService("RunService").Heartbeat:Connect(function()
+    local u = d()
+    if u then
+        local v = u.Character:FindFirstChild("HumanoidRootPart")
+        if v then
+            local w = p(v.Position)
+            local x = l(v, w)
+            game:GetService("ReplicatedStorage"):WaitForChild("Event"):FireServer("aim", {x})
+        end
+    end
 end)
