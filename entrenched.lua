@@ -1,52 +1,55 @@
-warn(string.char(76, 111, 97, 100, 101, 100) .. " " .. string.char(84, 117, 114, 114, 101, 116) .. " " .. string.char(65, 117, 116, 111) .. " " .. string.char(65, 105, 109))
+warn("Loaded Turret Auto Aim (Headshot)")
 
-local a = game:GetService("Players")
-local b = a.LocalPlayer
-local c = 800 -- velocidad de bala
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local BulletVelocity = 800
 
-local function d()
-    local e = b.Character
-    return e and e:FindFirstChild("HumanoidRootPart") and (function()
-        local f = e.HumanoidRootPart.Position
-        local g, h = nil, math.huge
-        for _, i in ipairs(a:GetPlayers()) do
-            if i ~= b and i.Team ~= b.Team and i.Character and i.Character:FindFirstChild("Head") then
-                local j = (i.Character.Head.Position - f).Magnitude
-                if j < h then
-                    local k = i.Character:FindFirstChildOfClass("Humanoid")
-                    if k and k.Health > 0 then
-                        h = j
-                        g = i
-                    end
-                end
-            end
-        end
-        return g
-    end)()
+local function getClosestEnemy()
+	local character = LocalPlayer.Character
+	if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+
+	local myPos = character.HumanoidRootPart.Position
+	local closestPlayer, shortestDistance = nil, math.huge
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Team ~= LocalPlayer.Team then
+			local enemyChar = player.Character
+			if enemyChar and enemyChar:FindFirstChild("Head") and enemyChar:FindFirstChild("HumanoidRootPart") then
+				local distance = (enemyChar.Head.Position - myPos).Magnitude
+				local humanoid = enemyChar:FindFirstChildOfClass("Humanoid")
+				if distance < shortestDistance and humanoid and humanoid.Health > 0 then
+					shortestDistance = distance
+					closestPlayer = player
+				end
+			end
+		end
+	end
+
+	return closestPlayer
 end
 
-local function l(m, n)
-    if not m then return m.Position end
-    local o = m.Velocity
-    return m.Position + (o * n)
+local function predictPosition(part, time)
+	local velocity = part and part.Velocity or Vector3.zero
+	return part.Position + velocity * time
 end
 
-local function p(q)
-    local r = b.Character
-    if not r or not r:FindFirstChild("HumanoidRootPart") then return 0 end
-    local s = r.HumanoidRootPart.Position
-    local t = (q - s).Magnitude
-    return t / c
+local function getTimeToTarget(targetPos)
+	local character = LocalPlayer.Character
+	if not character or not character:FindFirstChild("HumanoidRootPart") then return 0 end
+	local origin = character.HumanoidRootPart.Position
+	local distance = (targetPos - origin).Magnitude
+	return distance / BulletVelocity
 end
 
 game:GetService("RunService").Heartbeat:Connect(function()
-    local u = d()
-    if u then
-        local v = u.Character:FindFirstChild("Head")
-        if v then
-            local w = p(v.Position)
-            local x = l(v, w)
-            game:GetService("ReplicatedStorage"):WaitForChild("Event"):FireServer("aim", {x})
-        end
-    end
+	local target = getClosestEnemy()
+	if target and target.Character then
+		local head = target.Character:FindFirstChild("Head")
+		local hrp = target.Character:FindFirstChild("HumanoidRootPart")
+		if head and hrp then
+			local timeToTarget = getTimeToTarget(head.Position)
+			local predictedHeadPos = predictPosition(head, timeToTarget)
+			game:GetService("ReplicatedStorage"):WaitForChild("Event"):FireServer("aim", {predictedHeadPos})
+		end
+	end
 end)
